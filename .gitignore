@@ -1,0 +1,21 @@
+# === Node / React (doc-ui) ===
+node_modules/
+build/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+
+# === .NET (DocToMarkdown) ===
+bin/
+obj/
+*.user
+.vs/
+
+# === Uploaded documents (user data, must never be committed) ===
+DocToMarkdown/wwwroot/uploads/*
+!DocToMarkdown/wwwroot/uploads/.gitkeep
+
+# === OS junk ===
+Thumbs.db
+.DS_Store
