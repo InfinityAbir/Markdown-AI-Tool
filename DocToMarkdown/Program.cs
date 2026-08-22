@@ -1,27 +1,46 @@
-﻿using DocToMarkdown.Services;
+﻿using System.Threading.RateLimiting;
+using DocToMarkdown.Services;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ======================
-// 🔥 SERVICES
+// SERVICES
 // ======================
 
 builder.Services.AddControllers();
 
-// CORS (for React frontend)
+// CORS — locked to configured origins (appsettings "AllowedOrigins" /
+// env var AllowedOrigins__0 etc.), not wide open.
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReact",
+    options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins(allowedOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
 });
 
-// Swagger
+// Rate limiting — free-tier Groq + shared hosting can't take unlimited load
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("convert", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+});
+
+builder.Services.AddResponseCompression();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -31,7 +50,6 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1"
     });
 
-    // Fix file upload in Swagger
     options.MapType<IFormFile>(() => new OpenApiSchema
     {
         Type = "string",
@@ -39,30 +57,34 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Dependency Injection
+builder.Services.AddHttpClient<GroqService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
+});
+
 builder.Services.AddScoped<IConversionService, ConversionService>();
 
 var app = builder.Build();
 
 // ======================
-// 🔥 MIDDLEWARE
+// MIDDLEWARE
 // ======================
 
-// Enable CORS
-app.UseCors("AllowReact");
+app.UseResponseCompression();
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 
-// Swagger
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+// Swagger only in Development — don't expose API internals in production
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "DocToMarkdown API v1");
-    c.RoutePrefix = string.Empty; // Swagger at root
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DocToMarkdown API v1");
+        c.RoutePrefix = string.Empty;
+    });
+}
 
-// Static files (uploads)
-app.UseStaticFiles();
-
-// Routing
 app.MapControllers();
 
 app.Run();

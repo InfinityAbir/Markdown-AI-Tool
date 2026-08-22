@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "doc-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "doc-ui", "start"],
+      "port": 3000
+    }
+  ]
+}

@@ -29,5 +29,11 @@ namespace DocToMarkdown.Services
         public int TotalPages { get; set; }
 
         public int ProcessedBatches { get; set; }
+
+        // Honesty fields: report what actually happened, not what was requested.
+        public bool AiRequested { get; set; }
+        public int AiAttemptedBatches { get; set; }
+        public int AiSucceededBatches { get; set; }
+        public bool AiFullyApplied => AiRequested && AiAttemptedBatches > 0 && AiAttemptedBatches == AiSucceededBatches;
     }
 }

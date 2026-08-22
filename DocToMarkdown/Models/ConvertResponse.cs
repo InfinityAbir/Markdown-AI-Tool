@@ -20,6 +20,13 @@
 
         // ⚡ Optional but useful
         public int ChunkCount => Chunks?.Count ?? 0;
+
+        // Honest AI status — did Groq actually clean this document, or did
+        // it fall back to basic regex cleaning (rate limit, outage, etc.)?
+        public bool AiRequested { get; set; }
+        public bool AiFullyApplied { get; set; }
+        public int AiAttemptedBatches { get; set; }
+        public int AiSucceededBatches { get; set; }
     }
 
     public class TokenReport
