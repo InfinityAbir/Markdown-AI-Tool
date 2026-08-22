@@ -21,6 +21,9 @@ namespace DocToMarkdown.Controllers
             [".pdf"] = new[] { new byte[] { 0x25, 0x50, 0x44, 0x46 } }, // %PDF
             [".docx"] = new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } }, // PK.. (zip)
             [".xlsx"] = new[] { new byte[] { 0x50, 0x4B, 0x03, 0x04 } },
+            [".jpg"] = new[] { new byte[] { 0xFF, 0xD8, 0xFF } },
+            [".jpeg"] = new[] { new byte[] { 0xFF, 0xD8, 0xFF } },
+            [".png"] = new[] { new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A } },
         };
 
         private const long MaxFileSizeBytes = 25 * 1024 * 1024; // 25 MB — honest free-tier limit

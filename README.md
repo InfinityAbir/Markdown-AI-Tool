@@ -7,6 +7,7 @@ Converts PDF, DOCX, and XLSX files into clean, chunked Markdown — built for fe
 ## What it does
 
 - **Convert** PDF (via Poppler), DOCX/XLSX (via Pandoc) into Markdown
+- **Scan with camera** — on mobile, snap a photo of a physical document directly from the browser and OCR it (same Tesseract pipeline as scanned PDFs). Also accepts JPG/PNG uploads directly
 - **OCR fallback** — if a PDF has no text layer (scanned/image-only), it's automatically rasterized and read via Tesseract instead of failing outright. Good for clean typed scans; can be inaccurate for handwriting, low-resolution, or skewed pages — the response reports `ocrUsed: true` so you know when to double-check the output. Capped at 15 pages on the free tier (OCR is CPU-heavy)
 - **Clean** the output: strip page numbers, references, repeated boilerplate
 - **AI cleanup (optional)** — a real LLM call (Groq, free tier) removes filler and redundant sentences while preserving meaning. If Groq is rate-limited or unavailable, the app falls back to basic regex cleaning automatically — and says so in the response (`aiFullyApplied: false`), rather than silently claiming AI ran when it didn't

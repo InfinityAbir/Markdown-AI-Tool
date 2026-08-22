@@ -63,6 +63,7 @@ const styles = `
   .theme-toggle {
     width: 34px;
     height: 34px;
+    flex-shrink: 0;
     border-radius: 9px;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -122,11 +123,18 @@ const styles = `
   /* ── Header ── */
   .header {
     margin-bottom: 48px;
+  }
+
+  .header-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 20px;
-    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-titleblock {
+    min-width: 0;
+    flex: 1;
   }
 
   .header-eyebrow {
@@ -176,6 +184,7 @@ const styles = `
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    margin-top: 18px;
   }
 
   .badge {
@@ -815,6 +824,7 @@ export default function App() {
   const [aiMode, setAiMode] = useState(true);
   const [aiFullyApplied, setAiFullyApplied] = useState(null);
   const [ocrUsed, setOcrUsed] = useState(false);
+  const cameraInputRef = useRef(null);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("theme");
     if (saved) return saved;
@@ -940,23 +950,20 @@ export default function App() {
       <div className="app">
         {/* Header */}
         <header className="header">
-          <div className="fade-up" style={{ "--i": 0 }}>
-            <p className="header-eyebrow">
-              <span className="header-eyebrow-dot" />
-              Document Conversion
-            </p>
-            <h1 className="header-title">
-              Doc → <span className="gradient-text">Markdown</span>
-            </h1>
-            <p className="header-desc">
-              Upload a PDF, DOCX, or XLSX file. Get back clean, chunked
-              Markdown — with real LLM cleanup and RAG-ready exports.
-            </p>
-          </div>
-          <div
-            className="fade-up"
-            style={{ "--i": 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px" }}
-          >
+          <div className="header-top fade-up" style={{ "--i": 0 }}>
+            <div className="header-titleblock">
+              <p className="header-eyebrow">
+                <span className="header-eyebrow-dot" />
+                Document Conversion
+              </p>
+              <h1 className="header-title">
+                Doc → <span className="gradient-text">Markdown</span>
+              </h1>
+              <p className="header-desc">
+                Upload a PDF, DOCX, or XLSX file. Get back clean, chunked
+                Markdown — with real LLM cleanup and RAG-ready exports.
+              </p>
+            </div>
             <button
               className="theme-toggle"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -965,11 +972,11 @@ export default function App() {
             >
               {theme === "dark" ? "☀" : "☾"}
             </button>
-            <div className="header-badges">
-              <span className="badge">Groq LLM</span>
-              <span className="badge">RAG-ready</span>
-              <span className="badge">Free</span>
-            </div>
+          </div>
+          <div className="header-badges fade-up" style={{ "--i": 1 }}>
+            <span className="badge">Groq LLM</span>
+            <span className="badge">RAG-ready</span>
+            <span className="badge">Free</span>
           </div>
         </header>
 
@@ -991,14 +998,14 @@ export default function App() {
           <div className="upload-zone-inner">
             <input
               type="file"
-              accept=".pdf,.docx,.xlsx"
+              accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png"
               onChange={(e) => handleFile(e.target.files[0])}
             />
             <div className="upload-icon">📂</div>
             <p className="upload-label">
               <strong>Click to browse</strong> or drag & drop
             </p>
-            <p className="upload-hint">PDF · DOCX · XLSX · max {MAX_FILE_MB}MB</p>
+            <p className="upload-hint">PDF · DOCX · XLSX · JPG/PNG · max {MAX_FILE_MB}MB</p>
             {file && (
               <div className="file-pill">
                 <div className="file-pill-dot" />
@@ -1007,6 +1014,23 @@ export default function App() {
             )}
           </div>
         </div>
+
+        <button
+          className="btn btn-secondary camera-btn fade-up"
+          style={{ "--i": 2, marginTop: "10px", width: "100%" }}
+          onClick={() => cameraInputRef.current?.click()}
+        >
+          📷 Scan with camera
+        </button>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={(e) => handleFile(e.target.files[0])}
+        />
+
         <p className="privacy-note">
           🔒 Files are processed in memory and deleted immediately after
           conversion — never stored.

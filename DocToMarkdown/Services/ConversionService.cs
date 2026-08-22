@@ -45,6 +45,9 @@ namespace DocToMarkdown.Services
                     return await ConvertWithPandocAsync(inputPath, outputPath, enableAICompression);
                 }
 
+                if (ext == ".jpg" || ext == ".jpeg" || ext == ".png")
+                    return await ConvertImageAsync(inputPath, enableAICompression);
+
                 throw new Exception("Unsupported file type");
             }
             finally
@@ -223,6 +226,52 @@ namespace DocToMarkdown.Services
                 foreach (var img in imageFiles)
                     FileHelper.SafeDelete(img);
             }
+        }
+
+        // ================= CAMERA / IMAGE SCAN =================
+
+        private async Task<ConvertResult> ConvertImageAsync(string inputPath, bool enableAICompression)
+        {
+            var (exitCode, ocrOutput, error) = await ProcessHelper.RunProcess(
+                "tesseract", $"\"{inputPath}\" stdout", timeoutSeconds: 60);
+
+            if (exitCode != 0)
+                throw new Exception($"OCR failed: {error}");
+
+            if (string.IsNullOrWhiteSpace(ocrOutput))
+                throw new ConversionException(
+                    "No readable text found in this photo. Try a clearer, well-lit, straight-on shot.");
+
+            int originalTokens = CountTokens(ocrOutput);
+            string content = CleanText(ocrOutput);
+
+            int aiAttempted = 0;
+            int aiSucceeded = 0;
+
+            if (enableAICompression)
+            {
+                aiAttempted++;
+                var (compressed, succeeded) = await TryGroqCompress(content);
+                content = compressed;
+                if (succeeded) aiSucceeded++;
+            }
+
+            int cleanedTokens = CountTokens(content);
+            var chunks = ChunkText(content, 300);
+
+            return new ConvertResult
+            {
+                Content = content,
+                Chunks = chunks,
+                OriginalTokens = originalTokens,
+                CleanedTokens = cleanedTokens,
+                TotalPages = 1,
+                ProcessedBatches = 1,
+                AiRequested = enableAICompression,
+                AiAttemptedBatches = aiAttempted,
+                AiSucceededBatches = aiSucceeded,
+                OcrUsed = true
+            };
         }
 
         // ================= DOCX / XLSX =================
