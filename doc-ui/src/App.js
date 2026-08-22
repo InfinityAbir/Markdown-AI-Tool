@@ -814,6 +814,7 @@ export default function App() {
   const [processedBatches, setProcessedBatches] = useState(0);
   const [aiMode, setAiMode] = useState(true);
   const [aiFullyApplied, setAiFullyApplied] = useState(null);
+  const [ocrUsed, setOcrUsed] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("theme");
     if (saved) return saved;
@@ -849,6 +850,7 @@ export default function App() {
     try {
       setLoading(true);
       setAiFullyApplied(null);
+      setOcrUsed(false);
       const isLarge = file.size > 5 * 1024 * 1024;
       setStatus({
         type: "loading",
@@ -863,6 +865,7 @@ export default function App() {
       setTotalPages(res.data.totalPages);
       setProcessedBatches(res.data.processedBatches);
       setAiFullyApplied(res.data.aiFullyApplied);
+      setOcrUsed(res.data.ocrUsed);
 
       // Report what actually happened, not what was requested — if Groq
       // was rate-limited/unavailable the backend already fell back to
@@ -873,9 +876,10 @@ export default function App() {
           ? "AI cleanup applied (Groq)"
           : "AI unavailable — used basic cleanup instead";
       }
+      const ocrNote = res.data.ocrUsed ? " • OCR used" : "";
       setStatus({
         type: "success",
-        msg: `Done — ${res.data.chunks.length} chunks • ${res.data.totalPages} pages • ${aiNote}`,
+        msg: `Done — ${res.data.chunks.length} chunks • ${res.data.totalPages} pages • ${aiNote}${ocrNote}`,
       });
     } catch (err) {
       console.error(err);
@@ -914,6 +918,7 @@ export default function App() {
       totalPages,
       processedBatches,
       aiFullyApplied,
+      ocrUsed,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -1095,6 +1100,14 @@ export default function App() {
               <StatCard label="Total Pages" value={totalPages} index={0} />
               <StatCard label="Batches" value={processedBatches} index={1} />
               <StatCard label="Chunks" value={chunks.length} index={2} />
+              {ocrUsed && (
+                <div className="fallback-note">
+                  This document had no text layer — content was extracted via
+                  OCR. Quality is good for clean typed scans, but can be
+                  inaccurate for handwriting, low-resolution, or skewed pages
+                  — double-check anything critical.
+                </div>
+              )}
             </div>
           </>
         )}

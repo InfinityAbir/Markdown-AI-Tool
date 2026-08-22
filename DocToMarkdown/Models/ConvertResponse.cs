@@ -27,6 +27,10 @@
         public bool AiFullyApplied { get; set; }
         public int AiAttemptedBatches { get; set; }
         public int AiSucceededBatches { get; set; }
+
+        // Text came from OCR (no text layer in the source), not native
+        // extraction — quality depends on scan clarity, worth flagging.
+        public bool OcrUsed { get; set; }
     }
 
     public class TokenReport

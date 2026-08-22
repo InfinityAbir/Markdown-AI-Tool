@@ -12,10 +12,11 @@ RUN dotnet publish DocToMarkdown.csproj -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
-# Pandoc (DOCX/XLSX) + Poppler (pdfinfo/pdftotext for PDF) — the whole
+# Pandoc (DOCX/XLSX), Poppler (pdfinfo/pdftotext/pdftoppm for PDF), and
+# Tesseract (OCR fallback for scanned/image-only PDFs) — the whole
 # reason this can't run on plain shared/IIS hosting.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils pandoc \
+    && apt-get install -y --no-install-recommends poppler-utils pandoc tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/publish .

@@ -79,7 +79,8 @@ namespace DocToMarkdown.Controllers
                     AiRequested = result.AiRequested,
                     AiFullyApplied = result.AiFullyApplied,
                     AiAttemptedBatches = result.AiAttemptedBatches,
-                    AiSucceededBatches = result.AiSucceededBatches
+                    AiSucceededBatches = result.AiSucceededBatches,
+                    OcrUsed = result.OcrUsed
                 });
             }
             catch (ConversionException ex)

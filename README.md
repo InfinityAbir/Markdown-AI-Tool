@@ -7,6 +7,7 @@ Converts PDF, DOCX, and XLSX files into clean, chunked Markdown — built for fe
 ## What it does
 
 - **Convert** PDF (via Poppler), DOCX/XLSX (via Pandoc) into Markdown
+- **OCR fallback** — if a PDF has no text layer (scanned/image-only), it's automatically rasterized and read via Tesseract instead of failing outright. Good for clean typed scans; can be inaccurate for handwriting, low-resolution, or skewed pages — the response reports `ocrUsed: true` so you know when to double-check the output. Capped at 15 pages on the free tier (OCR is CPU-heavy)
 - **Clean** the output: strip page numbers, references, repeated boilerplate
 - **AI cleanup (optional)** — a real LLM call (Groq, free tier) removes filler and redundant sentences while preserving meaning. If Groq is rate-limited or unavailable, the app falls back to basic regex cleaning automatically — and says so in the response (`aiFullyApplied: false`), rather than silently claiming AI ran when it didn't
 - **Chunk** the result into fixed-size pieces, ready for embeddings/RAG ingestion
@@ -20,17 +21,18 @@ This runs on free infrastructure (Groq free tier, free hosting tier), so:
 - 25MB file size cap
 - AI cleanup may fall back to basic cleaning under rate limits
 - Token counts are an approximation (chars/4), not a real BPE tokenizer count
+- OCR (scanned PDFs) is capped at 15 pages and quality varies with scan clarity — not a substitute for a dedicated OCR service on messy documents
 
 ## Tech stack
 
-- **Backend:** ASP.NET Core 9, Pandoc, Poppler, Groq (OpenAI-compatible API)
+- **Backend:** ASP.NET Core 9, Pandoc, Poppler, Tesseract, Groq (OpenAI-compatible API)
 - **Frontend:** React 19, Axios, react-markdown
 
 ## Running locally
 
 ### Backend
 
-Requires [Pandoc](https://pandoc.org/installing.html) and [Poppler](https://github.com/oschwartz10612/poppler-windows/releases) on PATH.
+Requires [Pandoc](https://pandoc.org/installing.html), [Poppler](https://github.com/oschwartz10612/poppler-windows/releases), and [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) (for OCR) on PATH.
 
 ```bash
 cd DocToMarkdown
@@ -99,7 +101,8 @@ Response:
   "aiRequested": true,
   "aiFullyApplied": true,
   "aiAttemptedBatches": 9,
-  "aiSucceededBatches": 9
+  "aiSucceededBatches": 9,
+  "ocrUsed": false
 }
 ```
 

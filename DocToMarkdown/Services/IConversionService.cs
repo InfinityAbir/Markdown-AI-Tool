@@ -46,5 +46,9 @@ namespace DocToMarkdown.Services
         public int AiAttemptedBatches { get; set; }
         public int AiSucceededBatches { get; set; }
         public bool AiFullyApplied => AiRequested && AiAttemptedBatches > 0 && AiAttemptedBatches == AiSucceededBatches;
+
+        // True if any page needed OCR (no text layer) — quality is lower
+        // than native text extraction, worth flagging to the caller.
+        public bool OcrUsed { get; set; }
     }
 }

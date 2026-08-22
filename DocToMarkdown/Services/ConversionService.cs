@@ -59,6 +59,11 @@ namespace DocToMarkdown.Services
 
         // ================= PDF =================
 
+        // OCR is CPU-heavy and Render's free tier has very limited/shared
+        // CPU. Cap scanned-PDF OCR to a page count that won't just hang or
+        // blow the per-operation timeout.
+        private const int OcrMaxPages = 15;
+
         private async Task<ConvertResult> ConvertPdfAsync(string inputPath, bool enableAICompression)
         {
             int totalPages = await GetTotalPages(inputPath);
@@ -68,12 +73,25 @@ namespace DocToMarkdown.Services
             int originalTokens = 0;
             int aiAttempted = 0;
             int aiSucceeded = 0;
+            bool ocrUsed = false;
 
             for (int i = 1; i <= totalPages; i += batchSize)
             {
                 int end = Math.Min(i + batchSize - 1, totalPages);
 
                 string extractedText = await ExtractPages(inputPath, i, end);
+
+                if (string.IsNullOrWhiteSpace(extractedText))
+                {
+                    // No text layer for this range — likely a scanned/image
+                    // page. Fall back to OCR rather than silently skipping it.
+                    if (totalPages > OcrMaxPages)
+                        throw new ConversionException(
+                            $"This looks like a scanned PDF with no text layer. OCR on this free instance is limited to {OcrMaxPages} pages (CPU limits) — this file has {totalPages}.");
+
+                    extractedText = await OcrExtractPages(inputPath, i, end);
+                    ocrUsed = true;
+                }
 
                 originalTokens += CountTokens(extractedText);
 
@@ -91,12 +109,12 @@ namespace DocToMarkdown.Services
                 finalBuilder.AppendLine();
             }
 
-            // pdftotext returns empty output for scanned/image-only PDFs — no
-            // OCR is run. Fail loudly instead of "succeeding" with an empty
-            // document; a silent empty result is worse than an honest error.
+            // Should only trip if OCR itself found nothing (blank pages,
+            // extremely low-quality scan) — the no-text-layer case above is
+            // already handled by falling back to OCR.
             if (originalTokens == 0)
                 throw new ConversionException(
-                    "No extractable text found. This looks like a scanned or image-only PDF — OCR isn't supported yet.");
+                    "No extractable text found, even after OCR. This file may be blank or too low-quality to read.");
 
             string finalContent = finalBuilder.ToString().Trim();
             int cleanedTokens = CountTokens(finalContent);
@@ -112,7 +130,8 @@ namespace DocToMarkdown.Services
                 ProcessedBatches = (int)Math.Ceiling((double)totalPages / batchSize),
                 AiRequested = enableAICompression,
                 AiAttemptedBatches = aiAttempted,
-                AiSucceededBatches = aiSucceeded
+                AiSucceededBatches = aiSucceeded,
+                OcrUsed = ocrUsed
             };
         }
 
@@ -151,6 +170,58 @@ namespace DocToMarkdown.Services
             finally
             {
                 FileHelper.SafeDelete(tempFile);
+            }
+        }
+
+        // ================= OCR (scanned PDFs) =================
+
+        private async Task<string> OcrExtractPages(string filePath, int start, int end)
+        {
+            string prefix = Path.Combine(_uploadPath, Guid.NewGuid().ToString());
+            var imageFiles = new List<string>();
+
+            try
+            {
+                // Rasterize the page range to PNGs (pdftoppm numbers output
+                // files by page, e.g. prefix-1.png, prefix-2.png, ...).
+                var (rasterExit, _, rasterError) = await ProcessHelper.RunProcess(
+                    "pdftoppm",
+                    $"-png -f {start} -l {end} -r 200 \"{filePath}\" \"{prefix}\"",
+                    timeoutSeconds: 90);
+
+                if (rasterExit != 0)
+                {
+                    _logger.LogWarning("pdftoppm failed for pages {Start}-{End}: {Error}", start, end, rasterError);
+                    return "";
+                }
+
+                imageFiles = Directory.GetFiles(_uploadPath, $"{Path.GetFileName(prefix)}-*.png")
+                    .OrderBy(f => f)
+                    .ToList();
+
+                var ocrBuilder = new StringBuilder();
+                foreach (var imagePath in imageFiles)
+                {
+                    // "stdout" tells tesseract to print the result instead of
+                    // writing a .txt file.
+                    var (ocrExit, ocrOutput, ocrError) = await ProcessHelper.RunProcess(
+                        "tesseract", $"\"{imagePath}\" stdout", timeoutSeconds: 60);
+
+                    if (ocrExit != 0)
+                    {
+                        _logger.LogWarning("tesseract failed for {Image}: {Error}", imagePath, ocrError);
+                        continue;
+                    }
+
+                    ocrBuilder.AppendLine(ocrOutput);
+                }
+
+                return ocrBuilder.ToString();
+            }
+            finally
+            {
+                foreach (var img in imageFiles)
+                    FileHelper.SafeDelete(img);
             }
         }
 
