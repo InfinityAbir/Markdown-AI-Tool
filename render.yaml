@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: doc-to-markdown-api
+    runtime: docker
+    dockerfilePath: ./DocToMarkdown/Dockerfile
+    dockerContext: ./DocToMarkdown
+    plan: free
+    envVars:
+      - key: Groq__ApiKey
+        sync: false
+      - key: AllowedOrigins__0
+        value: https://doc-to-markdown-ui.onrender.com
+
+  - type: web
+    name: doc-to-markdown-ui
+    runtime: static
+    buildCommand: cd doc-ui && npm install && npm run build
+    staticPublishPath: ./doc-ui/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://doc-to-markdown-api.onrender.com
