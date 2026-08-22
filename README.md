@@ -1,211 +1,87 @@
-📄 Doc → Markdown AI Tool
+# Doc → Markdown
 
-An AI-powered document processing system that converts PDF, DOCX, and XLSX files into clean, structured Markdown — optimized for LLM usage, token efficiency, and scalable AI pipelines.
+Converts PDF, DOCX, and XLSX files into clean, chunked Markdown — built for feeding documents into LLM/RAG pipelines, not just as a generic file converter.
 
----
+## What it does
 
-🚀 Features
+- **Convert** PDF (via Poppler), DOCX/XLSX (via Pandoc) into Markdown
+- **Clean** the output: strip page numbers, references, repeated boilerplate
+- **AI cleanup (optional)** — a real LLM call (Groq, free tier) removes filler and redundant sentences while preserving meaning. If Groq is rate-limited or unavailable, the app falls back to basic regex cleaning automatically — and says so in the response (`aiFullyApplied: false`), rather than silently claiming AI ran when it didn't
+- **Chunk** the result into fixed-size pieces, ready for embeddings/RAG ingestion
+- **Token analytics** — approximate before/after token counts and reduction %
+- **Export** as Markdown or as RAG-ready JSON (chunks + metadata)
+- Handles large PDFs via page-batch processing
 
-🔹 Multi-Format Document Conversion
+## Honest limitations
 
-- Convert:
-  - PDF → Markdown (⚡ batch processing for large files)
-  - DOCX → Markdown
-  - XLSX → Markdown
-- Uses:
-  - Poppler (pdftotext) for PDFs
-  - Pandoc for DOCX/XLSX
+This runs on free infrastructure (Groq free tier, free hosting tier), so:
+- 25MB file size cap
+- AI cleanup may fall back to basic cleaning under rate limits
+- Token counts are an approximation (chars/4), not a real BPE tokenizer count
 
----
+## Tech stack
 
-🔹 Large PDF Support 🔥
+- **Backend:** ASP.NET Core 9, Pandoc, Poppler, Groq (OpenAI-compatible API)
+- **Frontend:** React 19, Axios, react-markdown
 
-- Handles 100+ page documents
-- Page-wise batch processing (no crashes)
-- Memory-efficient pipeline
-- Scalable architecture for real-world use
+## Running locally
 
----
+### Backend
 
-🔹 Advanced Cleaning Engine
+Requires [Pandoc](https://pandoc.org/installing.html) and [Poppler](https://github.com/oschwartz10612/poppler-windows/releases) on PATH.
 
-- Removes:
-  - Extra spaces & line breaks
-  - Page numbers
-  - References section
-  - Citations "[1]", "(2024)"
-  - Figure & table captions
-  - Repeated noisy lines
-- Produces clean, normalized Markdown
-
----
-
-🔹 AI Compression Mode 🔥 (Core Feature)
-
-- Optional toggle (UI-controlled)
-- Reduces tokens by:
-  - Removing filler words
-  - Deduplicating sentences
-  - Simplifying structure
-- Trade-off:
-  - ⚡ Lower token usage
-  - ⚠️ Slight wording changes
-
-👉 Perfect for LLM input optimization
-
----
-
-🔹 Token Optimization Analytics
-
-- Tracks:
-  - Original token count
-  - Cleaned token count
-  - Tokens saved
-  - Reduction %
-- Helps reduce:
-  - API cost 💸
-  - LLM latency ⚡
-
----
-
-🔹 AI Chunking System
-
-- Splits content into smaller chunks
-- Optimized for:
-  - GPT / LLM input
-  - RAG pipelines
-  - Embeddings
-
----
-
-🔹 Modern UI (React)
-
-- Clean dark-mode interface
-- Features:
-  - Drag & drop upload
-  - AI mode toggle 🔥
-  - Token analytics dashboard
-  - Chunk viewer
-  - Full Markdown preview
-  - Download ".md" file
-
----
-
-🧠 Why This Project?
-
-Large documents waste tokens when used with AI systems.
-
-This tool:
-
-- Cleans unnecessary content
-- Reduces token usage dramatically
-- Prepares documents for LLM pipelines
-
-👉 Ideal for:
-
-- Chat with PDF systems
-- Knowledge base apps
-- AI search & RAG systems
-- LLM preprocessing pipelines
-
----
-
-🖥️ UI Preview
-
-![App UI](assets/ui.png)
-
----
-
-🛠️ Tech Stack
-
-🔹 Backend
-
-- ASP.NET Core (.NET 9)
-- C#
-- REST API
-- Swagger
-
-🔹 Processing Tools
-
-- Pandoc (DOCX/XLSX → Markdown)
-- Poppler ("pdfinfo", "pdftotext") for PDF
-- Regex-based AI cleaning engine
-
-🔹 Frontend
-
-- React.js
-- Axios
-- React Markdown
-- Custom UI (dark theme)
-
----
-
-📦 Project Structure
-
-![Project Structure](assets/structure.png)
-
----
-
-⚙️ Installation & Setup
-
-🔹 Backend (ASP.NET Core)
-
+```bash
 cd DocToMarkdown
-dotnet restore
-dotnet build
+dotnet user-secrets init
+dotnet user-secrets set "Groq:ApiKey" "your-groq-key"
 dotnet run
+```
 
-API:
+API runs at `http://localhost:5256` (Swagger UI at `/` in Development only).
 
-https://localhost:7286
+Get a free Groq API key at [console.groq.com](https://console.groq.com). Without one, conversions still work — they just always use the basic fallback cleaner instead of real AI cleanup.
 
-Swagger:
+### Frontend
 
-https://localhost:7286/swagger
-
----
-
-🔹 Frontend (React)
-
+```bash
 cd doc-ui
 npm install
+cp .env.example .env   # set REACT_APP_API_URL if backend isn't on :5256
 npm start
+```
 
-Runs at:
+Runs at `http://localhost:3000`.
 
-http://localhost:3000
+## Running with Docker
 
----
+```bash
+cd DocToMarkdown
+docker build -t doc-to-markdown .
+docker run -p 8080:8080 -e Groq__ApiKey=your-groq-key -e PORT=8080 doc-to-markdown
+```
 
-⚠️ Requirements
+## Deploying (Render, free tier)
 
-Make sure you install:
+1. **Backend** — new Render "Web Service" from this repo, root directory `DocToMarkdown`, Docker runtime (uses the included `Dockerfile`). Set env vars:
+   - `Groq__ApiKey` — your Groq key
+   - `AllowedOrigins__0` — your deployed frontend URL
+2. **Frontend** — new Render "Static Site", root directory `doc-ui`, build command `npm run build`, publish directory `build`. Set env var:
+   - `REACT_APP_API_URL` — your deployed backend URL
 
-🔹 Pandoc
+Free tier spins the backend down after 15 minutes idle; first request after that takes ~30-50s to wake up.
 
-https://pandoc.org/installing.html
+## API
 
-🔹 Poppler (for PDF processing)
+`POST /api/convert/convert` (multipart/form-data)
 
-https://github.com/oschwartz10612/poppler-windows/releases
-
-👉 Add to PATH:
-
-C:\poppler\Library\bin
-
----
-
-🔥 API Example
-
-Request (multipart/form-data):
-
-- "file": document file
-- "enableAICompression": true / false
-
----
+| Field | Type |
+|---|---|
+| `file` | PDF/DOCX/XLSX, max 25MB |
+| `enableAICompression` | boolean |
 
 Response:
 
+```json
 {
   "fileName": "document.pdf",
   "markdownContent": "...",
@@ -217,36 +93,16 @@ Response:
     "tokensSaved": 3500
   },
   "totalPages": 88,
-  "processedBatches": 9
+  "processedBatches": 9,
+  "aiRequested": true,
+  "aiFullyApplied": true,
+  "aiAttemptedBatches": 9,
+  "aiSucceededBatches": 9
 }
+```
 
----
+## Roadmap
 
-💥 Key Highlights
-
-- ⚡ Handles large PDFs efficiently
-- 🧠 AI-optimized text compression
-- 💸 Reduces LLM costs significantly
-- 🧩 Ready for RAG & embeddings
-- 🎯 Clean, production-style architecture
-
----
-
-🚀 Future Improvements
-
-- AI summarization per chunk
-- Real-time progress tracking
-- Side-by-side comparison (AI vs Normal)
-- Semantic deduplication
-- Embedding generation & storage
-
----
-
-📌 Conclusion
-
-This is not just a file converter.
-
-👉 It’s a complete AI document preprocessing pipeline
-built for real-world LLM applications.
-
----
+- Real BPE tokenizer instead of the chars/4 approximation
+- Semantic (not fixed-size) chunking
+- Embedding generation

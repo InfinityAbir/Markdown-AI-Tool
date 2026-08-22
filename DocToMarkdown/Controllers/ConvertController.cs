@@ -82,6 +82,12 @@ namespace DocToMarkdown.Controllers
                     AiSucceededBatches = result.AiSucceededBatches
                 });
             }
+            catch (ConversionException ex)
+            {
+                // Expected, user-actionable failure (e.g. scanned PDF) —
+                // safe to show verbatim in any environment.
+                return UnprocessableEntity(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Conversion failed for {FileName}", file.FileName);

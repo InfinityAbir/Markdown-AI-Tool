@@ -85,6 +85,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Render's default health check hits "/" — Swagger no longer owns that
+// route in production, so give it something to check.
+app.MapGet("/", () => Results.Ok(new { status = "ok", service = "DocToMarkdown API" }));
+
 app.MapControllers();
 
 app.Run();

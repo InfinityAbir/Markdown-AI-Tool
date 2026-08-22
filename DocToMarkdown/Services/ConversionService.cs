@@ -91,6 +91,13 @@ namespace DocToMarkdown.Services
                 finalBuilder.AppendLine();
             }
 
+            // pdftotext returns empty output for scanned/image-only PDFs — no
+            // OCR is run. Fail loudly instead of "succeeding" with an empty
+            // document; a silent empty result is worse than an honest error.
+            if (originalTokens == 0)
+                throw new ConversionException(
+                    "No extractable text found. This looks like a scanned or image-only PDF — OCR isn't supported yet.");
+
             string finalContent = finalBuilder.ToString().Trim();
             int cleanedTokens = CountTokens(finalContent);
             var chunks = ChunkText(finalContent, 300);
@@ -158,6 +165,9 @@ namespace DocToMarkdown.Services
                 throw new Exception($"Pandoc error: {error}");
 
             var content = await File.ReadAllTextAsync(outputPath);
+
+            if (string.IsNullOrWhiteSpace(content))
+                throw new ConversionException("No extractable text found in this file.");
 
             int originalTokens = CountTokens(content);
 

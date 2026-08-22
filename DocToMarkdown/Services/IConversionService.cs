@@ -2,6 +2,17 @@
 
 namespace DocToMarkdown.Services
 {
+    /// <summary>
+    /// Expected, user-actionable conversion failures (e.g. a scanned PDF
+    /// with no extractable text). Safe to show verbatim to the client in
+    /// any environment — unlike a generic Exception, which may carry
+    /// internal tool output and is hidden outside Development.
+    /// </summary>
+    public class ConversionException : Exception
+    {
+        public ConversionException(string message) : base(message) { }
+    }
+
     public interface IConversionService
     {
         // 📄 Main method (supports all file types)

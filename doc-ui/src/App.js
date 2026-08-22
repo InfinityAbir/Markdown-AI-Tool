@@ -553,6 +553,31 @@ const styles = `
   }
   .chunk-toggle.open { transform: rotate(180deg); }
 
+  .copy-btn {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--muted2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .copy-btn:hover {
+    color: var(--cyan);
+    border-color: var(--border2);
+  }
+
+  .privacy-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .chunk-body {
     padding: 20px;
     font-size: 13px;
@@ -692,6 +717,23 @@ function StatCard({ label, value, accent, index, suffix = "" }) {
   );
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="copy-btn"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 function ChunkCard({ chunk, index }) {
   const [open, setOpen] = useState(index === 0);
   return (
@@ -701,7 +743,10 @@ function ChunkCard({ chunk, index }) {
           <span className="chunk-index">Chunk #{index + 1}</span>
           <span className="chunk-chars">{chunk.length} chars</span>
         </div>
-        <span className={`chunk-toggle ${open ? "open" : ""}`}>▾</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <CopyButton text={chunk} />
+          <span className={`chunk-toggle ${open ? "open" : ""}`}>▾</span>
+        </div>
       </div>
       {open && (
         <div className="chunk-body">
@@ -751,7 +796,13 @@ export default function App() {
     try {
       setLoading(true);
       setAiFullyApplied(null);
-      setStatus({ type: "loading", msg: "Converting document…" });
+      const isLarge = file.size > 5 * 1024 * 1024;
+      setStatus({
+        type: "loading",
+        msg: isLarge
+          ? "Converting document — large files with AI cleanup can take up to a minute…"
+          : "Converting document…",
+      });
       const res = await axios.post(`${API_BASE}/api/convert/convert`, formData);
       setChunks(res.data.chunks);
       setMarkdown(res.data.markdownContent);
@@ -885,6 +936,10 @@ export default function App() {
             )}
           </div>
         </div>
+        <p className="privacy-note">
+          🔒 Files are processed in memory and deleted immediately after
+          conversion — never stored.
+        </p>
 
         {/* AI toggle */}
         <div className="ai-panel fade-up" style={{ "--i": 3 }}>
@@ -1001,6 +1056,9 @@ export default function App() {
                   <div className="section-divider-line" />
                   <span className="section-divider-label">Full Document</span>
                   <div className="section-divider-line" />
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
+                  <CopyButton text={markdown} />
                 </div>
                 <div className="chunk-body">
                   <div className="scroll-x">
