@@ -1,6 +1,8 @@
 # Doc → Markdown
 
 Converts PDF, DOCX, and XLSX files into clean, chunked Markdown — built for feeding documents into LLM/RAG pipelines, not just as a generic file converter.
+---
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Site-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white)](https://doc-to-markdown-ui.onrender.com)
 
 ## What it does
 
