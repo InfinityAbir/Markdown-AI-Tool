@@ -36,6 +36,20 @@ const styles = `
     --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  :root[data-theme="light"] {
+    --bg: #f7f8fc;
+    --surface: #ffffff;
+    --surface2: #f1f3f9;
+    --border: #e2e5ee;
+    --border2: #cbd0e0;
+    --text: #1a1f2e;
+    --muted: #6b7280;
+    --muted2: #444d61;
+    --success-bg: rgba(16, 150, 96, 0.12);
+    --warning-bg: rgba(180, 120, 0, 0.12);
+    --danger-bg: rgba(220, 38, 38, 0.1);
+  }
+
   html { background: var(--bg); }
 
   body {
@@ -43,6 +57,27 @@ const styles = `
     color: var(--text);
     font-family: var(--font-body);
     min-height: 100vh;
+    transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  }
+
+  .theme-toggle {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 15px;
+    transition: border-color 0.2s var(--ease), color 0.2s var(--ease), transform 0.15s var(--ease);
+  }
+  .theme-toggle:hover {
+    color: var(--cyan);
+    border-color: var(--border2);
+    transform: translateY(-1px);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -330,7 +365,7 @@ const styles = `
   }
 
   .btn:active:not(:disabled) { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn:disabled { cursor: not-allowed; }
 
   .btn-primary {
     background: var(--gradient);
@@ -340,6 +375,11 @@ const styles = `
   .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 8px 22px -6px rgba(79, 70, 229, 0.7);
+  }
+  .btn-primary:disabled {
+    background: var(--surface2);
+    color: var(--muted);
+    box-shadow: none;
   }
 
   .btn-secondary {
@@ -351,6 +391,9 @@ const styles = `
     color: var(--text);
     border-color: var(--border2);
     transform: translateY(-1px);
+  }
+  .btn-secondary:disabled {
+    color: var(--muted);
   }
 
   @media (max-width: 560px) {
@@ -771,6 +814,16 @@ export default function App() {
   const [processedBatches, setProcessedBatches] = useState(0);
   const [aiMode, setAiMode] = useState(true);
   const [aiFullyApplied, setAiFullyApplied] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved) return saved;
+    return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const handleFile = (f) => {
     if (!f) return;
@@ -895,10 +948,23 @@ export default function App() {
               Markdown — with real LLM cleanup and RAG-ready exports.
             </p>
           </div>
-          <div className="header-badges fade-up" style={{ "--i": 1 }}>
-            <span className="badge">Groq LLM</span>
-            <span className="badge">RAG-ready</span>
-            <span className="badge">Free</span>
+          <div
+            className="fade-up"
+            style={{ "--i": 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px" }}
+          >
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label="Toggle light/dark theme"
+              title="Toggle light/dark theme"
+            >
+              {theme === "dark" ? "☀" : "☾"}
+            </button>
+            <div className="header-badges">
+              <span className="badge">Groq LLM</span>
+              <span className="badge">RAG-ready</span>
+              <span className="badge">Free</span>
+            </div>
           </div>
         </header>
 
