@@ -70,6 +70,7 @@ builder.Services.AddHttpClient<GroqService>(client =>
 
 builder.Services.AddScoped<IConversionService, ConversionService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddSingleton<ConversionJobStore>();
 
 var app = builder.Build();
 

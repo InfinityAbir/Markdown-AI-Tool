@@ -1128,6 +1128,65 @@ export default function App() {
     setStatus(null);
   };
 
+  const POLL_INTERVAL_MS = 2000;
+  const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 min ceiling — matches OcrMaxPages worst case
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const applyConvertResult = (result) => {
+    setChunks(result.chunks);
+    setConversionId((id) => id + 1);
+    setMarkdown(result.markdownContent);
+    setTokenReport(result.tokenReport);
+    setTotalPages(result.totalPages);
+    setProcessedBatches(result.processedBatches);
+    setAiFullyApplied(result.aiFullyApplied);
+    setOcrUsed(result.ocrUsed);
+
+    // Report what actually happened, not what was requested — if Groq
+    // was rate-limited/unavailable the backend already fell back to
+    // basic cleaning, and the UI should say so instead of claiming AI ran.
+    let aiNote = "Normal Mode";
+    if (aiMode) {
+      aiNote = result.aiFullyApplied
+        ? "AI cleanup applied (Groq)"
+        : "AI unavailable — used basic cleanup instead";
+    }
+    const ocrNote = result.ocrUsed ? " • OCR used" : "";
+    setStatus({
+      type: "success",
+      msg: `Done — ${result.chunks.length} chunks • ${result.totalPages} pages • ${aiNote}${ocrNote}`,
+    });
+  };
+
+  const pollJobStatus = async (jobId) => {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      await sleep(POLL_INTERVAL_MS);
+      const res = await axios.get(`${API_BASE}/api/convert/status/${jobId}`);
+      const { status } = res.data;
+
+      if (status === "done") {
+        applyConvertResult(res.data.result);
+        return;
+      }
+      if (status === "failed") {
+        setStatus({
+          type: "error",
+          msg: res.data.message || "Conversion failed. Check console.",
+        });
+        return;
+      }
+      // "pending" — keep polling
+    }
+
+    setStatus({
+      type: "error",
+      msg: "Conversion is taking too long. It may still finish — try again in a bit.",
+    });
+  };
+
   const uploadFile = async () => {
     if (!file) {
       setStatus({ type: "error", msg: "Please select a file first." });
@@ -1148,29 +1207,7 @@ export default function App() {
           : "Converting document…",
       });
       const res = await axios.post(`${API_BASE}/api/convert/convert`, formData);
-      setChunks(res.data.chunks);
-      setConversionId((id) => id + 1);
-      setMarkdown(res.data.markdownContent);
-      setTokenReport(res.data.tokenReport);
-      setTotalPages(res.data.totalPages);
-      setProcessedBatches(res.data.processedBatches);
-      setAiFullyApplied(res.data.aiFullyApplied);
-      setOcrUsed(res.data.ocrUsed);
-
-      // Report what actually happened, not what was requested — if Groq
-      // was rate-limited/unavailable the backend already fell back to
-      // basic cleaning, and the UI should say so instead of claiming AI ran.
-      let aiNote = "Normal Mode";
-      if (aiMode) {
-        aiNote = res.data.aiFullyApplied
-          ? "AI cleanup applied (Groq)"
-          : "AI unavailable — used basic cleanup instead";
-      }
-      const ocrNote = res.data.ocrUsed ? " • OCR used" : "";
-      setStatus({
-        type: "success",
-        msg: `Done — ${res.data.chunks.length} chunks • ${res.data.totalPages} pages • ${aiNote}${ocrNote}`,
-      });
+      await pollJobStatus(res.data.jobId);
     } catch (err) {
       console.error(err);
       setStatus({

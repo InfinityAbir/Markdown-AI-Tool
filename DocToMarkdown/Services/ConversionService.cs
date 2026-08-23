@@ -23,18 +23,33 @@ namespace DocToMarkdown.Services
 
         public async Task<ConvertResult> ConvertToMarkdownAsync(IFormFile file, bool enableAICompression)
         {
+            var inputPath = await SaveUploadedFileAsync(file);
+            return await ConvertFromSavedFileAsync(inputPath, file.FileName, enableAICompression);
+        }
+
+        // Saves the upload to disk while the request's IFormFile stream is
+        // still valid, so the caller can hand the returned path off to a
+        // background job that outlives this HTTP request.
+        public async Task<string> SaveUploadedFileAsync(IFormFile file)
+        {
             var uniqueName = Guid.NewGuid() + Path.GetExtension(file.FileName);
             var inputPath = Path.Combine(_uploadPath, uniqueName);
+
+            using (var stream = new FileStream(inputPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return inputPath;
+        }
+
+        public async Task<ConvertResult> ConvertFromSavedFileAsync(string inputPath, string originalFileName, bool enableAICompression)
+        {
             string? outputPath = null;
 
             try
             {
-                using (var stream = new FileStream(inputPath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                var ext = Path.GetExtension(file.FileName).ToLower();
+                var ext = Path.GetExtension(originalFileName).ToLower();
 
                 if (ext == ".pdf")
                     return await ConvertPdfAsync(inputPath, enableAICompression);

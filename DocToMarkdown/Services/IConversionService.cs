@@ -20,6 +20,13 @@ namespace DocToMarkdown.Services
 
         // 📚 Optional: specifically for large PDFs (more control later)
         Task<ConvertResult> ConvertLargePdfAsync(IFormFile file);
+
+        // Saves the upload to disk immediately (while the request's
+        // IFormFile stream is still valid) so a background job can process
+        // it after the HTTP request that received it has already returned.
+        Task<string> SaveUploadedFileAsync(IFormFile file);
+
+        Task<ConvertResult> ConvertFromSavedFileAsync(string savedFilePath, string originalFileName, bool enableAICompression);
     }
 
     // 📦 Clean structured response (better than tuple)
