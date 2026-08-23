@@ -37,6 +37,12 @@ builder.Services.AddRateLimiter(options =>
         opt.Window = TimeSpan.FromMinutes(1);
         opt.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("chat", opt =>
+    {
+        opt.PermitLimit = 20;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
 });
 
 builder.Services.AddResponseCompression();
@@ -63,6 +69,7 @@ builder.Services.AddHttpClient<GroqService>(client =>
 });
 
 builder.Services.AddScoped<IConversionService, ConversionService>();
+builder.Services.AddScoped<ChatService>();
 
 var app = builder.Build();
 

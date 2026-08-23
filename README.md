@@ -14,6 +14,7 @@ Converts PDF, DOCX, and XLSX files into clean, chunked Markdown — built for fe
 - **Chunk** the result into fixed-size pieces, ready for embeddings/RAG ingestion
 - **Token analytics** — approximate before/after token counts and reduction %
 - **Export** as Markdown or as RAG-ready JSON (chunks + metadata)
+- **Chat with the document** — a floating chat widget lets you ask questions grounded in the converted document. Stateless (the client resends its own chunks each turn, nothing stored server-side). Short documents (the common case) get the full document as context; longer ones fall back to keyword-matched chunks, flagged via `contextTruncated`. It won't guess — if the answer isn't in the document, it says so instead of hallucinating
 - Handles large PDFs via page-batch processing
 
 ## Honest limitations

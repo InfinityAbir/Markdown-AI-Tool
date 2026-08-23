@@ -724,6 +724,168 @@ const styles = `
     text-align: center;
     font-family: var(--font-mono);
   }
+
+  /* ── Chat widget ── */
+  .chat-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px -6px rgba(79, 70, 229, 0.6);
+    transition: transform 0.2s var(--ease);
+    z-index: 40;
+  }
+  .chat-fab:hover { transform: scale(1.06); }
+
+  .chat-panel {
+    position: fixed;
+    bottom: 92px;
+    right: 24px;
+    width: min(360px, calc(100vw - 32px));
+    height: min(480px, calc(100vh - 140px));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 40;
+    animation: fadeUp 0.25s var(--ease);
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chat-header-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .chat-header-sub {
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .chat-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px;
+  }
+  .chat-close:hover { color: var(--text); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chat-bubble {
+    max-width: 85%;
+    padding: 9px 13px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .chat-bubble.user {
+    align-self: flex-end;
+    background: var(--gradient);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.assistant {
+    align-self: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble.error {
+    align-self: flex-start;
+    background: var(--danger-bg);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    color: var(--danger);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble-note {
+    display: block;
+    margin-top: 5px;
+    font-size: 10px;
+    opacity: 0.75;
+  }
+
+  .chat-empty {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    margin: auto;
+    padding: 20px;
+    line-height: 1.6;
+  }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: var(--text);
+    font-family: var(--font-body);
+    resize: none;
+  }
+  .chat-input:focus { outline: none; border-color: var(--border2); }
+  .chat-send {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: var(--gradient);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  @media (max-width: 480px) {
+    .chat-panel {
+      right: 16px;
+      bottom: 88px;
+      width: calc(100vw - 32px);
+    }
+    .chat-fab { right: 16px; bottom: 16px; }
+  }
 `;
 
 function useCountUp(target, duration = 900) {
@@ -811,6 +973,122 @@ function ChunkCard({ chunk, index }) {
   );
 }
 
+function ChatWidget({ chunks, fileName }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]); // { role: 'user'|'assistant'|'error', content, truncated? }
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
+
+  const send = async () => {
+    const question = input.trim();
+    if (!question || sending) return;
+
+    const history = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    setInput("");
+    setSending(true);
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/chat/ask`, {
+        chunks,
+        question,
+        history,
+      });
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: res.data.answer, truncated: res.data.contextTruncated },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "error",
+          content: err?.response?.data?.message || "AI is unavailable right now. Try again shortly.",
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!chunks.length) return null;
+
+  return (
+    <>
+      {open && (
+        <div className="chat-panel">
+          <div className="chat-header">
+            <div>
+              <div className="chat-header-title">Ask about this document</div>
+              <div className="chat-header-sub">{fileName}</div>
+            </div>
+            <button className="chat-close" onClick={() => setOpen(false)} aria-label="Close chat">
+              ✕
+            </button>
+          </div>
+
+          <div className="chat-messages">
+            {messages.length === 0 && (
+              <p className="chat-empty">
+                Ask a question about the converted document — answers are grounded
+                only in its content.
+              </p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`chat-bubble ${m.role}`}>
+                {m.content}
+                {m.truncated && (
+                  <span className="chat-bubble-note">
+                    Note: this document was long — only the most relevant parts were used.
+                  </span>
+                )}
+              </div>
+            ))}
+            {sending && <div className="chat-bubble assistant">…</div>}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="chat-input-row">
+            <textarea
+              className="chat-input"
+              rows={1}
+              placeholder="Ask a question…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+            />
+            <button className="chat-send" onClick={send} disabled={sending || !input.trim()}>
+              ➤
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        className="chat-fab"
+        onClick={() => setOpen(!open)}
+        aria-label="Ask about this document"
+        title="Ask about this document"
+      >
+        {open ? "✕" : "💬"}
+      </button>
+    </>
+  );
+}
+
 export default function App() {
   const [file, setFile] = useState(null);
   const [chunks, setChunks] = useState([]);
@@ -824,6 +1102,7 @@ export default function App() {
   const [aiMode, setAiMode] = useState(true);
   const [aiFullyApplied, setAiFullyApplied] = useState(null);
   const [ocrUsed, setOcrUsed] = useState(false);
+  const [conversionId, setConversionId] = useState(0);
   const cameraInputRef = useRef(null);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("theme");
@@ -870,6 +1149,7 @@ export default function App() {
       });
       const res = await axios.post(`${API_BASE}/api/convert/convert`, formData);
       setChunks(res.data.chunks);
+      setConversionId((id) => id + 1);
       setMarkdown(res.data.markdownContent);
       setTokenReport(res.data.tokenReport);
       setTotalPages(res.data.totalPages);
@@ -1182,6 +1462,8 @@ export default function App() {
 
         <footer className="footer">Doc → Markdown · runs on a free instance, limits apply</footer>
       </div>
+
+      <ChatWidget chunks={chunks} fileName={file?.name || "document"} key={conversionId} />
     </>
   );
 }

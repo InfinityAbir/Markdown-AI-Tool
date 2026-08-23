@@ -4,6 +4,8 @@ using System.Text.Json;
 
 namespace DocToMarkdown.Services
 {
+    public record ChatTurn(string Role, string Content);
+
     public class GroqService
     {
         private readonly HttpClient _http;
@@ -32,24 +34,48 @@ namespace DocToMarkdown.Services
         /// </summary>
         public async Task<string> CompressAsync(string text, CancellationToken ct = default)
         {
+            var messages = new List<ChatTurn>
+            {
+                new("system",
+                    "You compress text for LLM context windows. Remove filler words, " +
+                    "merge redundant sentences, cut repetition. Preserve all facts, numbers, " +
+                    "and meaning exactly. Output only the compressed text, no commentary."),
+                new("user", text)
+            };
+
+            return await ChatCompletionAsync(messages, temperature: 0.2, ct);
+        }
+
+        /// <summary>
+        /// Answers a question grounded in the given document context. Throws
+        /// on failure — caller decides how to surface that honestly.
+        /// </summary>
+        public async Task<string> AskAsync(string documentContext, string question, IEnumerable<ChatTurn> history, CancellationToken ct = default)
+        {
+            var messages = new List<ChatTurn>
+            {
+                new("system",
+                    "You answer questions about the document provided below. Only use " +
+                    "information from the document — if the answer isn't in it, say so " +
+                    "plainly instead of guessing or using outside knowledge. Be concise.\n\n" +
+                    "--- DOCUMENT ---\n" + documentContext)
+            };
+            messages.AddRange(history);
+            messages.Add(new("user", question));
+
+            return await ChatCompletionAsync(messages, temperature: 0.3, ct);
+        }
+
+        private async Task<string> ChatCompletionAsync(List<ChatTurn> messages, double temperature, CancellationToken ct)
+        {
             if (!IsConfigured)
                 throw new InvalidOperationException("Groq API key not configured");
 
             var payload = new
             {
                 model = Model,
-                temperature = 0.2,
-                messages = new object[]
-                {
-                    new
-                    {
-                        role = "system",
-                        content = "You compress text for LLM context windows. Remove filler words, " +
-                                  "merge redundant sentences, cut repetition. Preserve all facts, numbers, " +
-                                  "and meaning exactly. Output only the compressed text, no commentary."
-                    },
-                    new { role = "user", content = text }
-                }
+                temperature,
+                messages = messages.Select(m => new { role = m.Role, content = m.Content })
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
