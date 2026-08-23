@@ -223,7 +223,7 @@ namespace DocToMarkdown.Services
                     // "stdout" tells tesseract to print the result instead of
                     // writing a .txt file.
                     var (ocrExit, ocrOutput, ocrError) = await ProcessHelper.RunProcess(
-                        "tesseract", $"\"{imagePath}\" stdout --oem 1", timeoutSeconds: 120);
+                        "tesseract", $"\"{imagePath}\" stdout --oem 1 --psm 6", timeoutSeconds: 120);
 
                     if (ocrExit != 0)
                     {
@@ -248,7 +248,7 @@ namespace DocToMarkdown.Services
         private async Task<ConvertResult> ConvertImageAsync(string inputPath, bool enableAICompression)
         {
             var (exitCode, ocrOutput, error) = await ProcessHelper.RunProcess(
-                "tesseract", $"\"{inputPath}\" stdout --oem 1", timeoutSeconds: 120);
+                "tesseract", $"\"{inputPath}\" stdout --oem 1 --psm 6", timeoutSeconds: 120);
 
             if (exitCode != 0)
                 throw new Exception($"OCR failed: {error}");
